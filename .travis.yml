@@ -1,0 +1,22 @@
+language: node_js
+
+sudo: required
+services:
+- docker
+
+node_js:
+- lts/*
+
+before_install:
+- docker pull nginx:alpine
+
+install:
+- yarn install
+
+script:
+- yarn build
+
+cache:
+  yarn: true
+  directories:
+  - node_modules
