@@ -1,8 +1,9 @@
-const path = require('path');
-const CopyWebpackPlugin = require('copy-webpack-plugin');
-const CleanWebpackPlugin = require('clean-webpack-plugin');
-const HtmlWebpackPlugin = require('html-webpack-plugin');
-const webpack = require('webpack');
+const path = require('path'),
+    CopyWebpackPlugin = require('copy-webpack-plugin'),
+    WorkboxPlugin = require('workbox-webpack-plugin'),
+    CleanWebpackPlugin = require('clean-webpack-plugin'),
+    HtmlWebpackPlugin = require('html-webpack-plugin'),
+    webpack = require('webpack');
 
 const dist = 'dist';
 
@@ -24,10 +25,11 @@ module.exports = {
             { from: 'public', to: '' },
         ]),
         new HtmlWebpackPlugin({
-            title: 'Output Management'
+            template: 'public/index.html'
         }),
         new CleanWebpackPlugin([dist]),
-        new webpack.HotModuleReplacementPlugin()
+        new webpack.HotModuleReplacementPlugin(),
+        new WorkboxPlugin.GenerateSW()
     ],
     module: {
         rules: [

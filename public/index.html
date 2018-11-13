@@ -2,11 +2,18 @@
 <html>
 
 <head>
-    <title>Getting Started</title>
+    <title>State Machine Creator</title>
 </head>
 
 <body>
-    <script src="main.js"></script>
+    <script>
+        if ('serviceWorker' in navigator) {
+            // Use the window load event to keep the page load performant
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./service-worker.js');
+            });
+        }
+    </script>
 </body>
 
 </html>
