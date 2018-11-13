@@ -15,4 +15,7 @@ export default class Node {
             properties: {},
         }
     }
+    public get translate(): string {
+        return `translate(${this.x},${this.y})`;
+    }
 }

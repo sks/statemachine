@@ -120,25 +120,35 @@ export default class GraphCreator {
             .on('drag', this.dragMove)
             .on('end', this.dragEnd);
 
-
         // listen for key events
-        // d3.select(window).on('keydown', this.svgKeyDown)
-        //   .on('keyup', this.svgKeyUp);
-        // this.svg.on('mousedown', this.svgClick);
+        d3.select(window).on('keydown', this.svgKeyDown)
+            .on('keyup', () => this.state.lastKeyDown = -1);
         this.svg
-            .on('mouseover', (d) => {
-                this.svg.style('cursor', 'crosshair');
-            })
+            .on('mouseover', () => this.svg.style('cursor', 'crosshair'))
             .on('mousedown', () => this.state.graphMouseDown = true)
-            .on('mouseup', () => this.svgMouseUp());
+            .on('mouseup', () => this.svgMouseUp())
+            .on('dblclick.zoom', () => this.svg.attr('transform', d3.event.transform));
+    }
+    public svgKeyDown = () => {
+        // make sure repeated key presses don't register for each keydown
+        if (this.state.lastKeyDown !== -1) return;
 
-        // handle zoom
-        // this.svg.call(d3.zoom()
-        //     .scaleExtent([1 / 2, 8])
-        //     .on('zoom', () => {
-        //         this.svgG.attr('transform', d3.event.transform);
-        //     }));
-        this.svg.on('dblclick.zoom', null);
+        this.state.lastKeyDown = d3.event.keyCode;
+        switch (d3.event.keyCode) {
+            case consts.BACKSPACE_KEY:
+            case consts.DELETE_KEY:
+                d3.event.preventDefault();
+                if (this.state.selectedNode) {
+                    this.nodes.splice(this.nodes.indexOf(this.state.selectedNode), 1);
+                    this.spliceLinksForNode(this.state.selectedNode);
+                    this.state.selectedNode = null;
+                } else if (this.state.selectedEdge) {
+                    this.edges.splice(this.edges.indexOf(this.state.selectedEdge), 1);
+                    this.state.selectedEdge = null;
+                }
+                this.updateGraph();
+                break;
+        }
     }
     public svgMouseUp = () => {
         if (this.state.justScaleTransGraph) {
@@ -205,7 +215,7 @@ export default class GraphCreator {
         this.state.justDragged = true;
         if (this.state.shiftNodeDrag) {
             const gMousePos = d3.mouse(this.svgG.node());
-            this.connectorLine.attr('d', 'M' + d.x + ',' + d.y + 'L' + gMousePos[0] + ',' + gMousePos[1]);
+            this.connectorLine.attr('d', `M${d.x},${d.y}L${gMousePos[0]},${gMousePos[1]}`);
         } else {
             d.x += d3.event.dx;
             d.y += d3.event.dy;
@@ -213,52 +223,30 @@ export default class GraphCreator {
         }
     };
     private dragEnd = (d: any) => {
-        if (this.state.shiftNodeDrag) {
-            if (this.connectTarget && (this.connectTarget !== d)) {
-                const newEdge = new Edge(d, this.connectTarget);
-                this.edges.push(newEdge);
-                this.updateGraph();
-            }
-            this.state.shiftNodeDrag = false;
-            this.connectorLine.classed('hidden', true);
-        } else {
+        if (!this.state.shiftNodeDrag) {
             this.showResults([]);
         }
+        if (this.connectTarget && (this.connectTarget !== d)) {
+            const newEdge = new Edge(d, this.connectTarget);
+            this.edges.push(newEdge);
+            this.updateGraph();
+        }
+        this.state.shiftNodeDrag = false;
+        this.connectorLine.classed('hidden', true);
     };
 
     private deleteGraph(skipPrompt: boolean) {
-        let doDelete = true;
-        if (!skipPrompt) {
-            doDelete = window.confirm('Press OK to delete this graph');
-        }
-        if (!doDelete) {
-            return
+        if (!skipPrompt && !window.confirm('Press OK to delete this graph')) {
+            return;
         }
         while (this.nodes.length) { this.nodes.pop(); }
         while (this.edges.length) { this.edges.pop(); }
         this.updateGraph();
     };
-    public removeSelected() {
-        const state = this.state;
-        const selectedNode = state.selectedNode;
-        const selectedEdge = state.selectedEdge;
-
-        if (selectedNode) {
-            this.nodes.splice(this.nodes.indexOf(selectedNode), 1);
-            this.spliceLinksForNode(selectedNode);
-            state.selectedNode = null;
-            this.updateGraph();
-        } else if (selectedEdge) {
-            this.edges.splice(this.edges.indexOf(selectedEdge), 1);
-            state.selectedEdge = null;
-            this.updateGraph();
-        }
-    };
     private spliceLinksForNode(node: any) {
-        const toSplice = this.edges.filter((l) => {
+        this.edges.filter((l) => {
             return (l.source === node || l.target === node);
-        });
-        toSplice.map((l) => {
+        }).forEach(l => {
             this.edges.splice(this.edges.indexOf(l), 1);
         });
     };
@@ -281,9 +269,9 @@ export default class GraphCreator {
     };
     private deselectNodes = () => {
         const thisGraph = this;
-        thisGraph.circles.selectAll('g').filter(function (cd: any) {
-            return cd.id === thisGraph.state.selectedNode.id;
-        }).classed(consts.selectedClass, false);
+        thisGraph.circles.selectAll('g')
+            .filter((cd: any) => cd.id === thisGraph.state.selectedNode.id)
+            .classed(consts.selectedClass, false);
         thisGraph.state.selectedNode = null;
     };
     private deselectEdges = () => {
@@ -325,7 +313,7 @@ export default class GraphCreator {
         if (this.isMouseOnCircleCorner(d3node)) {
             state.shiftNodeDrag = true;
             thisGraph.connectorLine.classed('hidden', false)
-                .attr('d', 'M' + d.x + ',' + d.y + 'L' + d.x + ',' + d.y);
+                .attr('d', `M ${d.x},${d.y}L${d.x},${d.y}`);
             return;
         }
     };
@@ -353,12 +341,8 @@ export default class GraphCreator {
             (d: Edge) => String(d.source.id) + '+' + String(d.target.id));
         // update existing paths
         paths.style('marker-end', 'url(#end-arrow)')
-            .classed(consts.selectedClass, (d: Edge) => {
-                return d === this.state.selectedEdge;
-            })
-            .attr('d', function (d: Edge) {
-                return 'M' + d.source.x + ',' + d.source.y + 'L' + d.target.x + ',' + d.target.y;
-            });
+            .classed(consts.selectedClass, (d: Edge) => d === this.state.selectedEdge)
+            .attr('d', (d: Edge) => `M ${d.source.x},${d.source.y}L${d.target.x},${d.target.y}`);
 
         // add new paths
         let thisGraph = this;
@@ -366,29 +350,23 @@ export default class GraphCreator {
             .append('path')
             .style('marker-end', 'url(#end-arrow)')
             .classed('link', true)
-            .attr('d', (d) => {
-                return 'M' + d.source.x + ',' + d.source.y + 'L' + d.target.x + ',' + d.target.y;
-            })
+            .attr('d', (d: Edge) => `M ${d.source.x},${d.source.y}L${d.target.x},${d.target.y}`)
             .on('mousedown', function (d) { thisGraph.pathMouseDown(d3.select(this), d) })
-            .on('mouseup', (d) => { this.state.mouseDownLink = null; });
+            .on('mouseup', () => this.state.mouseDownLink = null);
 
         // remove old links
         paths.exit().remove();
 
         // update existing nodes
         const circles = this.circles.selectAll('g').data(this.nodes);
-        circles.attr('transform', (d: Node) => {
-            return 'translate(' + d.x + ',' + d.y + ')';
-        });
+        circles.attr('transform', (d: Node) => d.translate);
 
         // add new nodes
         const newGs = circles.enter()
             .append('g');
 
         newGs.classed(consts.circleGClass, true)
-            .attr('transform', (d: Node) => {
-                return 'translate(' + d.x + ',' + d.y + ')';
-            })
+            .attr('transform', (d: Node) => d.translate)
             .on('mouseover', function (d: Node) {
                 if (!thisGraph.state.shiftNodeDrag) { return; }
                 if (thisGraph.connectTarget) { return; }
