@@ -12,6 +12,9 @@ module.exports = {
         filename: '[name]-[hash:6].js',
         path: path.resolve(__dirname, dist)
     },
+    resolve: {
+        extensions: [".ts", ".tsx", ".js"]
+    },
     devtool: 'source-map',
     devServer: {
         contentBase: `./${dist}`
@@ -29,7 +32,7 @@ module.exports = {
     module: {
         rules: [
             {
-                test: /\.ts?$/,
+                test: /\.tsx?$/,
                 use: 'ts-loader',
                 exclude: /node_modules/
             },

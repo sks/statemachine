@@ -1,0 +1,18 @@
+#!/bin/sh -exu
+
+function publish(){
+    cd dist
+        git init
+        git remote add pages git@github.com:sks/statemachine.git
+        git add .
+        git ci -am "Initial Commit"
+        git push -f pages head:gh-pages
+    cd -
+}
+
+function main(){
+    yarn build
+    publish
+}
+
+main
