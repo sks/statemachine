@@ -18,6 +18,7 @@ import Edge from './graph/edge';
     const xLoc = width / 2 - 25,
         yLoc = 100;
 
+
     // initial node data
     const nodes: Node[] = [
         new Node("new concept", 0, xLoc, yLoc),
