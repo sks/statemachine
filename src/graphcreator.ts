@@ -4,7 +4,6 @@ import * as d3 from 'd3';
 import Node from "./graph/node";
 import Edge from "./graph/edge";
 
-
 export interface d3Selection extends d3.Selection<d3.BaseType, Node, HTMLElement, any> { };
 
 const consts = {
@@ -162,12 +161,12 @@ export default class GraphCreator {
             this.nodes.push(node);
             this.updateGraph();
             // make title of text immediently editable
-            //   var d3txt = this.changeTextOfNode(thisGraph.circles.filter(function(dval){
-            //     return dval.id === d.id;
-            //   }), d),
-            //       txtNode = d3txt.node();
-            //   thisGraph.selectElementContents(txtNode);
-            //   txtNode.focus();
+            const d3txt = this.changeTextOfNode(this.circles.filter((dval) => {
+                return dval.id === node.id;
+            }), node);
+            const txtNode = d3txt.node();
+            this.selectElementContents(txtNode);
+            (txtNode as HTMLElement).focus();
         } else if (this.state.shiftNodeDrag) {
             // dragged from node
             this.state.shiftNodeDrag = false;
@@ -175,6 +174,56 @@ export default class GraphCreator {
         }
         this.state.graphMouseDown = false;
     }
+
+    private selectElementContents(el) {
+        var range = document.createRange();
+        range.selectNodeContents(el);
+        var sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+    }
+
+
+
+    private changeTextOfNode = (d3node, d) => {
+        const thisGraph = this,
+            htmlEl = d3node.node();
+        d3node.selectAll("text").remove();
+        var nodeBCR = htmlEl.getBoundingClientRect(),
+            curScale = nodeBCR.width / consts.nodeRadius,
+            placePad = 5 * curScale,
+            useHW = curScale > 1 ? nodeBCR.width * 0.71 : consts.nodeRadius * 1.42;
+        // replace with editableconent text
+        var d3txt = thisGraph.svg.selectAll("foreignObject")
+            .data([d])
+            .enter()
+            .append("foreignObject")
+            .attr("x", nodeBCR.left + placePad)
+            .attr("y", nodeBCR.top + placePad)
+            .attr("height", 2 * useHW)
+            .attr("width", useHW)
+            .append("xhtml:p")
+            .attr("id", consts.activeEditId)
+            .attr("contentEditable", "true")
+            .text(d.title)
+            .on("mousedown", function (d) {
+                d3.event.stopPropagation();
+            })
+            .on("keydown", function (d) {
+                d3.event.stopPropagation();
+                if (d3.event.keyCode == consts.ENTER_KEY && !d3.event.shiftKey) {
+                    (this as HTMLElement).blur();
+                }
+            })
+            .on("blur", function (d) {
+                d.title = (this as HTMLInputElement).textContent;
+                GraphCreator.insertTitleLinebreaks(d3node, d.title);
+                d3.select((this as HTMLInputElement).parentElement).remove();
+            });
+        return d3txt;
+    };
+
+
 
     public serialize() {
         const saveEdges: Edge[] = [];
@@ -358,12 +407,11 @@ export default class GraphCreator {
         paths.exit().remove();
 
         // update existing nodes
-        const circles = this.circles.selectAll('g').data(this.nodes);
-        circles.attr('transform', (d: Node) => d.translate);
+        this.circles = this.circles.selectAll('g').data(this.nodes) as d3Selection;
+        this.circles.attr('transform', (d: Node) => d.translate);
 
         // add new nodes
-        const newGs = circles.enter()
-            .append('g');
+        const newGs = this.circles.enter().append('g');
 
         newGs.classed(consts.circleGClass, true)
             .attr('transform', (d: Node) => d.translate)
@@ -398,7 +446,7 @@ export default class GraphCreator {
         });
 
         // remove old nodes
-        circles.exit().remove();
+        this.circles.exit().remove();
     };
 
     showResults(resultList: d3.BaseType[]) {
@@ -407,8 +455,7 @@ export default class GraphCreator {
             return;
         }
         this.lastResultList = resultList;
-        const thisGraph = this;
-        const resultCircle = thisGraph.resultCircles.selectAll('g').data(resultList);
+        const resultCircle = this.resultCircles.selectAll('g').data(resultList);
         const cornerDistance = consts.nodeRadius + consts.nodeRadius / 1.618;
         const getTranslate = (d: any, isStart: boolean) => {
             const distance = isStart ? consts.nodeRadius : cornerDistance;

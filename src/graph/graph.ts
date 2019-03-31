@@ -8,6 +8,16 @@ interface iGraph {
 
 export default class Graph {
     constructor(public nodes: Node[], public edges: Edge[]) { }
+    public static fromString(val: string): Graph {
+        let jsonVal: iGraph;
+        try {
+            jsonVal = JSON.parse(window.atob(val));
+        } catch (error) {
+            console.error('error deserializing the value', { val, error });
+            jsonVal = { nodes: [], edges: [] };
+        }
+        return new Graph(jsonVal.nodes, jsonVal.edges);
+    }
     public toString(): string {
         return `nodes: ${this.nodes.length}, edges: ${this.edges.length}`;
     }
